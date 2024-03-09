@@ -1,4 +1,3 @@
-// payment.js
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
@@ -9,6 +8,7 @@ const paymentSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-const Payment = mongoose.model('Payment', paymentSchema);
+// Define the Mongoose model and specify the collection name 'payments'
+const Payment = mongoose.model('Payment', paymentSchema, 'payments');
 
 module.exports = Payment;

@@ -1,3 +1,5 @@
+// index.js
+
 const express = require("express");
 const axios = require("axios");
 const port = 4006;
@@ -5,39 +7,42 @@ const app = express();
 const uniqid = require("uniqid");
 const sha256 = require("sha256");
 
-
 const mongoose = require('mongoose');
-const Payment = require('./payment'); // Import Payment schema
+const Payment = require('./payment'); // Import the Payment model correctly
 
-//testing purpose
+// MongoDB connection
+mongoose.connect("mongodb+srv://admin:0987612345@admin.ufv8rfz.mongodb.net/phonepe")
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
+// Testing purpose
 const PHONE_PAY_URL = "https://api-preprod.phonepe.com/apis/pg-sandbox";
 const MERCHANT_ID = "PGTESTPAYUAT";
 const SALT_INDEX = 1;
 const SALT_KEY = "099eb0cd-02cf-4e2a-8aca-3e6c6aff0399";
 
+// Route for homepage
 app.get("/", (req, res) => {
-    res.send("yeah finnally it is working");
+    res.send("Homepage - It's working!");
 });
 
-
+// Route to initiate payment
 app.get("/pay", (req, res) => {
     const payEndpoint = "/pg/v1/pay";
     const merchantTransactionId = uniqid();
     const userID = 123;
-    const payload = (
-        {
-            merchantId: MERCHANT_ID,
-            merchantTransactionId: merchantTransactionId,
-            merchantUserId: userID,
-            amount: 10000,
-            redirectUrl: `https://localhost:4005/redirect-url/${merchantTransactionId}`,
-            redirectMode: "REDIRECT",
-            mobileNumber: "9999999999",
-            paymentInstrument: {
-                type: "PAY_PAGE"
-            },
-        }
-    );
+    const payload = {
+        merchantId: MERCHANT_ID,
+        merchantTransactionId: merchantTransactionId,
+        merchantUserId: userID,
+        amount: 10000,
+        redirectUrl: `https://localhost:4006/redirect-url/${merchantTransactionId}`,
+        redirectMode: "REDIRECT",
+        mobileNumber: "9999999999",
+        paymentInstrument: {
+            type: "PAY_PAGE"
+        },
+    };
     const bufferObj = Buffer.from(JSON.stringify(payload), "utf8");
     const base63EncodedPayload = bufferObj.toString("base64");
     const xVerify = sha256(base63EncodedPayload + payEndpoint + SALT_KEY) + "###" + SALT_INDEX;
@@ -59,16 +64,16 @@ app.get("/pay", (req, res) => {
         .then(function (response) {
             console.log(response.data);
             const url = response.data.data.instrumentResponse.redirectInfo.url;
-            res.redirect(url)
+            res.redirect(url);
         })
         .catch(function (error) {
             console.error(error);
         });
 });
 
+// Route to handle redirect URL after payment
 app.get("/redirectUrl/:merchantTransactionId", (req, res) => {
     const { merchantTransactionId } = req.params;
-    console.log("merchantTransactionId", merchantTransactionId);
     if (merchantTransactionId) {
         const xVerify = sha256(`/pg/v1/status/${MERCHANT_ID}/${merchantTransactionId}` + SALT_KEY) + "###" + SALT_INDEX;
         const options = {
@@ -80,14 +85,12 @@ app.get("/redirectUrl/:merchantTransactionId", (req, res) => {
                 "X-MERCHANT-ID": merchantTransactionId,
                 "X-VERIFY": xVerify
             },
-
         };
         axios
             .request(options)
             .then(function (response) {
                 console.log(response.data);
                 if (response.data.code === 'PAYMENT_SUCCESS') {
-                    // Payment is successful, store payment data
                     const payment = new Payment({
                         merchantTransactionId,
                         userId: '123', // Replace with actual user ID (e.g., from authentication)
@@ -99,35 +102,28 @@ app.get("/redirectUrl/:merchantTransactionId", (req, res) => {
                     payment.save()
                         .then(savedPayment => {
                             console.log('Payment data saved:', savedPayment);
-                            // Redirect the user to the success page
                             res.redirect('/success');
                         })
                         .catch(error => {
-                            console.error('Error saving payment data:', error);
-                            // Redirect the user to the error page
+                            console.error('Error saving payment data:', error); // Log the error
                             res.redirect('/error');
                         });
                 } else if (response.data.code === 'PAYMENT_ERROR') {
-                    // Payment encountered an error, redirect the user to the error page
                     res.redirect('/error');
                 } else {
-                    // Payment is pending, redirect the user to the pending page
                     res.redirect('/pending');
                 }
-
-                res.send(response.data)
             })
             .catch(function (error) {
-                console.error(error);
+                console.error('Error fetching payment status:', error); // Log the error
+                res.redirect('/error');
             });
-
     } else {
         res.send({ error: "Error" });
     }
 });
 
-
-
+// Start the server
 app.listen(port, () => {
-    console.log(`app starte ${port}`);
-}); 
+    console.log(`Server started on port ${port}`);
+});
