@@ -1,5 +1,3 @@
-// index.js
-
 const express = require("express");
 const axios = require("axios");
 const port = 4006;
@@ -10,23 +8,23 @@ const sha256 = require("sha256");
 const mongoose = require('mongoose');
 const Payment = require('./payment'); // Import the Payment model correctly
 
-// MongoDB connection
+// connect to the mongodb
 mongoose.connect("mongodb+srv://admin:0987612345@admin.ufv8rfz.mongodb.net/phonepe")
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('MongoDB connection error:', err));
 
-// Testing purpose
+// it is for testing purpose
 const PHONE_PAY_URL = "https://api-preprod.phonepe.com/apis/pg-sandbox";
 const MERCHANT_ID = "PGTESTPAYUAT";
 const SALT_INDEX = 1;
 const SALT_KEY = "099eb0cd-02cf-4e2a-8aca-3e6c6aff0399";
 
-// Route for homepage
+// this is route for homepage
 app.get("/", (req, res) => {
     res.send("Homepage - It's working!");
 });
 
-// Route to initiate payment
+// it's the route to initiate the payment
 app.get("/pay", (req, res) => {
     const payEndpoint = "/pg/v1/pay";
     const merchantTransactionId = uniqid();
@@ -93,8 +91,8 @@ app.get("/redirectUrl/:merchantTransactionId", (req, res) => {
                 if (response.data.code === 'PAYMENT_SUCCESS') {
                     const payment = new Payment({
                         merchantTransactionId,
-                        userId: '123', // Replace with actual user ID (e.g., from authentication)
-                        amount: 10000, // Replace with the actual payment amount
+                        userId: '123', // replace with actual userId
+                        amount: 10000, // replace with the actual payment amount
                         status: 'success' // Set the payment status to 'success'
                     });
 
@@ -121,6 +119,18 @@ app.get("/redirectUrl/:merchantTransactionId", (req, res) => {
     } else {
         res.send({ error: "Error" });
     }
+});
+
+//  this is for API endpoint to fetch all transactions
+app.get("/transactions", (req, res) => {
+    Payment.find({}, (err, transactions) => {
+        if (err) {
+            console.error('Error fetching transactions:', err);
+            res.status(500).json({ error: 'Internal server error' });
+        } else {
+            res.json(transactions);
+        }
+    });
 });
 
 // Start the server
